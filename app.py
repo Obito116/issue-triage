@@ -4,6 +4,7 @@
 # Run: streamlit run app.py
 import json
 import os
+import random
 import re
 
 import joblib
@@ -41,11 +42,36 @@ ROUTE = {
     "question": "point to docs or move to Discussions",
     "documentation": "assign to a docs maintainer",
 }
+# Several curated examples per category; the buttons rotate through them randomly.
 EXAMPLES = {
-    "Bug": "Clicking export throws a 500 error when the table is empty. Stack trace points to a null pointer in ExportService.",
-    "Feature": "It would be great to support dark mode in the settings page, with a toggle that remembers the choice.",
-    "Question": "How do I configure the proxy settings when running behind a corporate firewall? Couldn't find it anywhere.",
-    "Docs": "The README still references the old install command. Can someone update the getting-started section?",
+    "Bug": [
+        "Clicking export throws a 500 error when the table is empty. Stack trace points to a null pointer in ExportService.",
+        "App crashes on startup after upgrading to v2.3. Worked fine on v2.2, log shows a segfault in the native module loader.",
+        "Login fails with 'invalid token' even though the credentials are correct. Clearing cookies fixes it temporarily, then it breaks again.",
+        "Memory usage keeps climbing until the worker is OOM-killed. Looks like the connection pool never releases idle sockets.",
+        "Date picker returns the wrong day when the browser timezone is west of UTC — selecting March 5 saves March 4.",
+    ],
+    "Feature": [
+        "It would be great to support dark mode in the settings page, with a toggle that remembers the choice.",
+        "Please add a CSV import option so we can bulk-load users instead of creating them one by one through the UI.",
+        "Add keyboard shortcuts for the most common actions — at least save, search, and switching between tabs.",
+        "Would love a webhook that fires whenever a deployment finishes, so we can post the status to Slack automatically.",
+        "Support exporting reports as PDF in addition to the current Excel format, ideally with the charts included.",
+    ],
+    "Question": [
+        "How do I configure the proxy settings when running behind a corporate firewall? Couldn't find it anywhere.",
+        "Is it possible to run two instances against the same database, or will the schedulers conflict with each other?",
+        "What is the difference between the sync and async clients? Which one should I use for a web server?",
+        "How can I increase the upload size limit? I keep getting 413 errors with files over 10 MB — is this expected?",
+        "Does the cache survive a restart, or do I need to configure persistence separately? The docs don't say.",
+    ],
+    "Docs": [
+        "The README still references the old install command. Can someone update the getting-started section?",
+        "The configuration page is missing half of the available environment variables — please document the new ones from v3.",
+        "The API reference for the search endpoint shows a response shape that doesn't match what the server actually returns.",
+        "Add a migration guide for upgrading from 1.x to 2.x — the breaking changes are only mentioned in the changelog.",
+        "The code sample in the authentication tutorial doesn't compile, the import path changed two releases ago.",
+    ],
 }
 LABELS = ["bug", "feature", "question", "documentation"]
 
@@ -107,8 +133,14 @@ def evidence(text, label, k=8):
 
 # Button callbacks. on_click runs before any widget instantiates on the rerun,
 # so writing session_state here is what makes the text_area refresh reliably.
-def use_example(body):
-    st.session_state["issue"] = body
+def use_example(name):
+    pool = EXAMPLES[name]
+    i = random.randrange(len(pool))
+    # rotate: never show the same example for this category twice in a row
+    while len(pool) > 1 and i == st.session_state.get(f"last_ex_{name}"):
+        i = random.randrange(len(pool))
+    st.session_state[f"last_ex_{name}"] = i
+    st.session_state["issue"] = pool[i]
     st.session_state["src_true"] = None
     st.session_state["src_text"] = None
 
@@ -243,8 +275,8 @@ tab1, tab2, tab3 = st.tabs(["Classify", "Live benchmark", "Model card"])
 with tab1:
     st.caption("Load an example, pull a random real issue, or paste your own.")
     cols = st.columns(5)
-    for col, (name, body) in zip(cols[:4], EXAMPLES.items()):
-        col.button(name, use_container_width=True, on_click=use_example, args=(body,))
+    for col, name in zip(cols[:4], EXAMPLES):
+        col.button(name, use_container_width=True, on_click=use_example, args=(name,))
     if SAMPLES is not None:
         cols[4].button("🎲 Random real", use_container_width=True, on_click=use_random)
 
