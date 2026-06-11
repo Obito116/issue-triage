@@ -2,7 +2,7 @@
 # label - this just says why in a sentence or two. Uses OpenRouter (OpenAI-compatible).
 import os
 
-MODEL = os.getenv("EXPLAIN_MODEL", "openai/gpt-4o-mini")
+MODEL = os.getenv("EXPLAIN_MODEL", "google/gemini-3.5-flash")
 
 
 def explain(issue_text, label, confidence):
