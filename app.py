@@ -42,14 +42,19 @@ ROUTE = {
     "question": "point to docs or move to Discussions",
     "documentation": "assign to a docs maintainer",
 }
-# Several curated examples per category; the buttons rotate through them randomly.
+# Ten curated examples per category; the buttons rotate through them randomly.
 EXAMPLES = {
     "Bug": [
         "Clicking export throws a 500 error when the table is empty. Stack trace points to a null pointer in ExportService.",
-        "App crashes on startup after upgrading to v2.3. Worked fine on v2.2, log shows a segfault in the native module loader.",
+        "App crashes on startup after upgrading to v2.3. Worked fine on v2.2, the log shows a segfault in the native module loader.",
         "Login fails with 'invalid token' even though the credentials are correct. Clearing cookies fixes it temporarily, then it breaks again.",
         "Memory usage keeps climbing until the worker is OOM-killed. Looks like the connection pool never releases idle sockets.",
         "Date picker returns the wrong day when the browser timezone is west of UTC — selecting March 5 saves March 4.",
+        "Search returns stale results after deleting an item: the deleted record keeps appearing until the service is restarted, so the index is never invalidated.",
+        "Webhook deliveries are duplicated under load — when the queue backs up, the same event fires two or three times with identical payload IDs.",
+        "Pagination breaks on the last page: requesting page 12 of 12 returns a 404 even though the response header reports 290 total items.",
+        "File upload silently fails for filenames with non-ASCII characters. The request returns 200 but the object is never written to storage.",
+        "Race condition when two users edit the same record: the second save overwrites the first with no conflict warning, and data is lost.",
     ],
     "Feature": [
         "It would be great to support dark mode in the settings page, with a toggle that remembers the choice.",
@@ -57,20 +62,35 @@ EXAMPLES = {
         "Add keyboard shortcuts for the most common actions — at least save, search, and switching between tabs.",
         "Would love a webhook that fires whenever a deployment finishes, so we can post the status to Slack automatically.",
         "Support exporting reports as PDF in addition to the current Excel format, ideally with the charts included.",
+        "Add SAML single sign-on so enterprise customers can log in through their identity provider instead of managing separate passwords.",
+        "Provide a --dry-run flag for the migration command that prints the planned schema changes without applying anything.",
+        "Allow reports to be scheduled and emailed weekly — right now we have to generate and download them by hand every Monday.",
+        "Expose rate-limit headers on every API response so clients can back off gracefully before hitting 429s.",
+        "Add an audit log showing who changed which setting and when — we need this for our compliance review.",
     ],
     "Question": [
         "How do I configure the proxy settings when running behind a corporate firewall? Couldn't find it anywhere.",
         "Is it possible to run two instances against the same database, or will the schedulers conflict with each other?",
-        "What is the difference between the sync and async clients? Which one should I use for a web server?",
+        "What is the difference between the sync and async clients? Which one should I use inside a web server?",
         "How can I increase the upload size limit? I keep getting 413 errors with files over 10 MB — is this expected?",
         "Does the cache survive a restart, or do I need to configure persistence separately? The docs don't say.",
+        "What is the recommended way to back up the database while the service is running — is a live snapshot safe, or should writes be stopped first?",
+        "Can I use environment variables inside the config file, or do values have to be literal? The examples only show hardcoded strings.",
+        "Why does the first request after a deploy take several seconds? Is there a warm-up step I can trigger before traffic arrives?",
+        "Is there a way to limit memory usage per worker? Our containers have a 512 MB cap and I can't find a relevant setting.",
+        "How are timezones handled in scheduled jobs — does the cron expression use the server timezone or UTC?",
     ],
     "Docs": [
         "The README still references the old install command. Can someone update the getting-started section?",
-        "The configuration page is missing half of the available environment variables — please document the new ones from v3.",
+        "The configuration page is missing half of the available environment variables — please document the new ones added in v3.",
         "The API reference for the search endpoint shows a response shape that doesn't match what the server actually returns.",
         "Add a migration guide for upgrading from 1.x to 2.x — the breaking changes are only mentioned in the changelog.",
-        "The code sample in the authentication tutorial doesn't compile, the import path changed two releases ago.",
+        "The code sample in the authentication tutorial doesn't compile; the import path changed two releases ago.",
+        "The deployment guide never mentions the minimum supported database version — we only discovered the 12+ requirement from an error message.",
+        "Please add a reference page for the public CLI flags. --help lists them, but several have no explanation at all.",
+        "The architecture diagram in the wiki is three versions out of date and still shows the message queue that was removed.",
+        "Document the actual rate limits for each API tier — the pricing page says limits exist but never gives the numbers.",
+        "The troubleshooting section should cover the 'connection reset by peer' error; it's the most common question in Discussions.",
     ],
 }
 LABELS = ["bug", "feature", "question", "documentation"]
@@ -162,17 +182,19 @@ def use_random():
 st.markdown(
     """
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600&display=swap');
-    html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    html, body, .stApp, [class*="css"] { font-family:'Inter',-apple-system,'Segoe UI',sans-serif; }
+    .stApp p, .stApp span, .stApp div, .stApp label, .stApp button, .stApp textarea {
+        font-family:'Inter',-apple-system,'Segoe UI',sans-serif; }
     .block-container { max-width: 820px; padding-top: 2rem; }
     #MainMenu, footer { visibility:hidden; }
     [data-testid="stDecoration"] { display:none; }
     header[data-testid="stHeader"] { background:transparent; }
     @keyframes fadeUp { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
     @keyframes grow { from { width:0; } }
-    .eyebrow { font-family:'JetBrains Mono',monospace; font-size:.78rem; color:#8b949e;
-               letter-spacing:.04em; }
-    .h1 { font-family:'JetBrains Mono',monospace; font-weight:700; font-size:1.9rem;
+    .eyebrow { font-size:.72rem; font-weight:600; color:#8b949e;
+               letter-spacing:.09em; text-transform:uppercase; }
+    .h1 { font-weight:700; font-size:1.85rem; letter-spacing:-.02em;
           color:#e6edf3; margin:.2rem 0 .3rem 0; }
     .sub { color:#8b949e; font-size:.92rem; margin-bottom:1rem; line-height:1.55; }
     .stat-row { display:flex; gap:.6rem; margin:.2rem 0 1rem 0; flex-wrap:wrap; }
@@ -180,9 +202,9 @@ st.markdown(
             padding:.5rem .8rem; min-width:120px; flex:1;
             transition:border-color .15s ease, transform .15s ease; }
     .stat:hover { border-color:#8b949e44; transform:translateY(-1px); }
-    .stat .k { font-family:'JetBrains Mono',monospace; font-size:1.2rem; color:#e6edf3; font-weight:700; }
+    .stat .k { font-size:1.2rem; color:#e6edf3; font-weight:700; letter-spacing:-.01em; }
     .stat .l { font-size:.72rem; color:#8b949e; }
-    .pill { display:inline-block; font-family:'JetBrains Mono',monospace; font-weight:600;
+    .pill { display:inline-block; font-weight:600;
             font-size:.8rem; padding:.18rem .7rem; border-radius:2rem; }
     .card { border:1px solid #30363d; border-radius:10px; padding:1.05rem 1.15rem;
             background:#161b22; margin:.55rem 0; animation:fadeUp .25s ease;
@@ -191,23 +213,23 @@ st.markdown(
     .bar-track { background:#21262d; border-radius:4px; height:9px; flex:1; overflow:hidden; }
     .bar-track > div { animation:grow .5s ease; border-radius:4px; }
     .bar-row { display:flex; align-items:center; gap:.7rem; margin:.32rem 0;
-               font-family:'JetBrains Mono',monospace; font-size:.78rem; color:#8b949e; }
+               font-size:.8rem; color:#8b949e; }
     .bar-name { width:120px; text-align:right; }
     .bar-val { width:42px; }
-    .chip { display:inline-block; font-family:'JetBrains Mono',monospace; font-size:.78rem;
+    .chip { display:inline-block; font-size:.78rem; font-weight:500;
             padding:.14rem .5rem; margin:.15rem .25rem .15rem 0; border-radius:5px;
             border:1px solid #30363d; background:#0d1117; }
     .gh-table { width:100%; border-collapse:collapse; font-size:.8rem; }
     .gh-table th { text-align:left; color:#8b949e; font-weight:600; font-size:.74rem;
                    border-bottom:1px solid #30363d; padding:.4rem .5rem; }
     .gh-table td { border-bottom:1px solid #21262d; padding:.4rem .5rem; color:#c9d1d9;
-                   font-family:'JetBrains Mono',monospace; font-size:.76rem; }
+                   font-size:.78rem; }
     .gh-table tr:hover td { background:#1c2128; }
     .ok { color:#3fb950; } .no { color:#f85149; }
     .note { border:1px solid #9e6a03; background:#211a02; color:#e3b341; border-radius:8px;
             padding:.6rem .8rem; font-size:.82rem; margin:.5rem 0; animation:fadeUp .25s ease; }
     .page-footer { margin-top:2.5rem; padding-top:.9rem; border-top:1px solid #21262d;
-                   color:#6e7681; font-size:.76rem; font-family:'JetBrains Mono',monospace; }
+                   color:#6e7681; font-size:.76rem; }
     .page-footer a { color:#8b949e; text-decoration:none; }
     .page-footer a:hover { color:#58a6ff; }
 
@@ -240,15 +262,14 @@ st.markdown(
                                             box-shadow .15s ease; }
     .stTextArea [data-baseweb="textarea"]:focus-within { border-color:#2f81f7;
                                             box-shadow:0 0 0 3px rgba(47,129,247,.15); }
-    .stTextArea textarea { background:#0d1117; color:#e6edf3;
-                           font-family:'JetBrains Mono',monospace; font-size:.84rem;
+    .stTextArea textarea { background:#0d1117; color:#e6edf3; font-size:.88rem;
                            line-height:1.55; }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-st.markdown('<div class="eyebrow">$ triage --classify</div>', unsafe_allow_html=True)
+st.markdown('<div class="eyebrow">Automated issue classification</div>', unsafe_allow_html=True)
 st.markdown('<div class="h1">GitHub Issue Triage</div>', unsafe_allow_html=True)
 st.markdown(
     '<div class="sub">Reads an incoming issue and predicts its type — bug, feature, '
@@ -310,10 +331,10 @@ with tab1:
             <div class="card">
               <span class="pill" style="background:{color}22;color:{color};border:1px solid {color}66;">
                 {pred}</span>
-              <span style="color:#8b949e;font-family:'JetBrains Mono',monospace;font-size:.8rem;
+              <span style="color:#8b949e;font-size:.82rem;
                     margin-left:.6rem;">confidence {conf[pred]:.0%}</span>
               <div style="color:#c9d1d9;margin-top:.6rem;">{DESC[pred]}</div>
-              <div style="color:#6e7681;font-family:'JetBrains Mono',monospace;font-size:.78rem;
+              <div style="color:#6e7681;font-size:.8rem;
                     margin-top:.4rem;">&rarr; {ROUTE[pred]}</div>
             </div>
             """,
@@ -330,7 +351,7 @@ with tab1:
                 f'<span style="color:#8b949e;font-size:.82rem;">Ground truth for this real issue: </span>'
                 f'<span class="pill" style="background:{COLOR[src_true]}22;color:{COLOR[src_true]};'
                 f'border:1px solid {COLOR[src_true]}66;">{src_true}</span>'
-                f'<span style="color:{cc};font-family:JetBrains Mono,monospace;font-size:.8rem;'
+                f'<span style="color:{cc};font-size:.82rem;font-weight:500;'
                 f'margin-left:.6rem;">model {mk}</span></div>',
                 unsafe_allow_html=True,
             )
