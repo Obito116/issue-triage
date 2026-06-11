@@ -14,9 +14,13 @@ def explain(issue_text, label, confidence):
         from openai import OpenAI
 
         client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=key)
+        # Reasoning models spend tokens thinking before they answer, so the
+        # budget has to cover both - 160 was enough for gpt-4o-mini but cuts
+        # Gemini off mid-sentence. Keep the visible thinking effort low.
         r = client.chat.completions.create(
             model=MODEL,
-            max_tokens=160,
+            max_tokens=1024,
+            extra_body={"reasoning": {"effort": "low"}},
             messages=[
                 {
                     "role": "system",
@@ -31,6 +35,7 @@ def explain(issue_text, label, confidence):
                 },
             ],
         )
-        return r.choices[0].message.content.strip()
+        out = (r.choices[0].message.content or "").strip()
+        return out or "(the model returned an empty explanation — try again)"
     except Exception as e:
         return f"(explanation unavailable: {e})"
