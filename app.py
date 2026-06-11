@@ -105,42 +105,112 @@ def evidence(text, label, k=8):
     return [w for w, _ in scored[:k]]
 
 
+# Button callbacks. on_click runs before any widget instantiates on the rerun,
+# so writing session_state here is what makes the text_area refresh reliably.
+def use_example(body):
+    st.session_state["issue"] = body
+    st.session_state["src_true"] = None
+    st.session_state["src_text"] = None
+
+
+def use_random():
+    pick = SAMPLES.sample(1)
+    # never serve the same issue twice in a row
+    if len(SAMPLES) > 1:
+        while pick.index[0] == st.session_state.get("last_pick"):
+            pick = SAMPLES.sample(1)
+    st.session_state["last_pick"] = pick.index[0]
+    row = pick.iloc[0]
+    txt = build_text(row["title"], row["body"])
+    st.session_state["issue"] = txt
+    st.session_state["src_true"] = row["labels"]
+    st.session_state["src_text"] = txt
+
+
 st.markdown(
     """
     <style>
     @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600&display=swap');
     html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
     .block-container { max-width: 820px; padding-top: 2rem; }
+    #MainMenu, footer { visibility:hidden; }
+    [data-testid="stDecoration"] { display:none; }
+    header[data-testid="stHeader"] { background:transparent; }
+    @keyframes fadeUp { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:none; } }
+    @keyframes grow { from { width:0; } }
     .eyebrow { font-family:'JetBrains Mono',monospace; font-size:.78rem; color:#8b949e;
                letter-spacing:.04em; }
     .h1 { font-family:'JetBrains Mono',monospace; font-weight:700; font-size:1.9rem;
           color:#e6edf3; margin:.2rem 0 .3rem 0; }
-    .sub { color:#8b949e; font-size:.92rem; margin-bottom:1rem; }
+    .sub { color:#8b949e; font-size:.92rem; margin-bottom:1rem; line-height:1.55; }
     .stat-row { display:flex; gap:.6rem; margin:.2rem 0 1rem 0; flex-wrap:wrap; }
     .stat { border:1px solid #30363d; border-radius:8px; background:#0d1117;
-            padding:.5rem .8rem; min-width:120px; }
+            padding:.5rem .8rem; min-width:120px; flex:1;
+            transition:border-color .15s ease, transform .15s ease; }
+    .stat:hover { border-color:#8b949e44; transform:translateY(-1px); }
     .stat .k { font-family:'JetBrains Mono',monospace; font-size:1.2rem; color:#e6edf3; font-weight:700; }
     .stat .l { font-size:.72rem; color:#8b949e; }
     .pill { display:inline-block; font-family:'JetBrains Mono',monospace; font-weight:600;
             font-size:.8rem; padding:.18rem .7rem; border-radius:2rem; }
     .card { border:1px solid #30363d; border-radius:10px; padding:1.05rem 1.15rem;
-            background:#161b22; margin:.55rem 0; }
+            background:#161b22; margin:.55rem 0; animation:fadeUp .25s ease;
+            transition:border-color .15s ease; }
+    .card:hover { border-color:#484f58; }
     .bar-track { background:#21262d; border-radius:4px; height:9px; flex:1; overflow:hidden; }
+    .bar-track > div { animation:grow .5s ease; border-radius:4px; }
     .bar-row { display:flex; align-items:center; gap:.7rem; margin:.32rem 0;
                font-family:'JetBrains Mono',monospace; font-size:.78rem; color:#8b949e; }
     .bar-name { width:120px; text-align:right; }
     .bar-val { width:42px; }
     .chip { display:inline-block; font-family:'JetBrains Mono',monospace; font-size:.78rem;
             padding:.14rem .5rem; margin:.15rem .25rem .15rem 0; border-radius:5px;
-            border:1px solid #30363d; }
+            border:1px solid #30363d; background:#0d1117; }
     .gh-table { width:100%; border-collapse:collapse; font-size:.8rem; }
     .gh-table th { text-align:left; color:#8b949e; font-weight:600; font-size:.74rem;
                    border-bottom:1px solid #30363d; padding:.4rem .5rem; }
     .gh-table td { border-bottom:1px solid #21262d; padding:.4rem .5rem; color:#c9d1d9;
                    font-family:'JetBrains Mono',monospace; font-size:.76rem; }
+    .gh-table tr:hover td { background:#1c2128; }
     .ok { color:#3fb950; } .no { color:#f85149; }
     .note { border:1px solid #9e6a03; background:#211a02; color:#e3b341; border-radius:8px;
-            padding:.6rem .8rem; font-size:.82rem; margin:.5rem 0; }
+            padding:.6rem .8rem; font-size:.82rem; margin:.5rem 0; animation:fadeUp .25s ease; }
+    .page-footer { margin-top:2.5rem; padding-top:.9rem; border-top:1px solid #21262d;
+                   color:#6e7681; font-size:.76rem; font-family:'JetBrains Mono',monospace; }
+    .page-footer a { color:#8b949e; text-decoration:none; }
+    .page-footer a:hover { color:#58a6ff; }
+
+    /* tabs — GitHub underline style */
+    .stTabs [data-baseweb="tab-list"] { gap:.25rem; }
+    .stTabs [data-baseweb="tab"] { font-size:.88rem; color:#8b949e; padding:.55rem .25rem;
+                                   background:transparent; }
+    .stTabs [data-baseweb="tab"]:hover { color:#e6edf3; }
+    .stTabs [aria-selected="true"] { color:#e6edf3 !important; font-weight:600; }
+    .stTabs [data-baseweb="tab-highlight"] { background-color:#f78166; height:2px; }
+    .stTabs [data-baseweb="tab-border"] { background-color:#21262d; }
+
+    /* buttons */
+    .stButton > button { background:#21262d; color:#c9d1d9; border:1px solid #30363d;
+                         border-radius:6px; font-weight:500; font-size:.85rem;
+                         transition:all .15s ease; }
+    .stButton > button:hover { background:#30363d; border-color:#8b949e; color:#e6edf3;
+                               transform:translateY(-1px); }
+    .stButton > button:active { transform:none; }
+    .stButton > button[kind="primary"],
+    .stButton > button[data-testid="stBaseButton-primary"] {
+        background:#238636; border:1px solid rgba(240,246,252,.1); color:#fff; font-weight:600; }
+    .stButton > button[kind="primary"]:hover,
+    .stButton > button[data-testid="stBaseButton-primary"]:hover {
+        background:#2ea043; border-color:rgba(240,246,252,.1); }
+
+    /* text area */
+    .stTextArea [data-baseweb="textarea"] { background:#0d1117; border-color:#30363d;
+                                            border-radius:8px; transition:border-color .15s ease,
+                                            box-shadow .15s ease; }
+    .stTextArea [data-baseweb="textarea"]:focus-within { border-color:#2f81f7;
+                                            box-shadow:0 0 0 3px rgba(47,129,247,.15); }
+    .stTextArea textarea { background:#0d1117; color:#e6edf3;
+                           font-family:'JetBrains Mono',monospace; font-size:.84rem;
+                           line-height:1.55; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -174,16 +244,9 @@ with tab1:
     st.caption("Load an example, pull a random real issue, or paste your own.")
     cols = st.columns(5)
     for col, (name, body) in zip(cols[:4], EXAMPLES.items()):
-        if col.button(name, use_container_width=True):
-            st.session_state["issue"] = body
-            st.session_state["src_true"] = None
-            st.session_state["src_text"] = None
-    if SAMPLES is not None and cols[4].button("🎲 Random real", use_container_width=True):
-        row = SAMPLES.sample(1).iloc[0]
-        txt = build_text(row["title"], row["body"])
-        st.session_state["issue"] = txt
-        st.session_state["src_true"] = row["labels"]
-        st.session_state["src_text"] = txt
+        col.button(name, use_container_width=True, on_click=use_example, args=(body,))
+    if SAMPLES is not None:
+        cols[4].button("🎲 Random real", use_container_width=True, on_click=use_random)
 
     text = st.text_area(
         "Issue title + body", key="issue", height=170,
@@ -285,7 +348,7 @@ with tab2:
         n = st.slider("How many random unseen issues to test", 50, 800, 200, step=50)
         run = st.button("Run benchmark", type="primary", use_container_width=True)
         if run:
-            samp = SAMPLES.sample(n, random_state=None).reset_index(drop=True)
+            samp = SAMPLES.sample(n).reset_index(drop=True)
             texts = [build_text(t, b) for t, b in zip(samp["title"], samp["body"])]
             preds = pipe.predict(texts)
             y = samp["labels"].values
@@ -350,3 +413,9 @@ with tab3:
         "augmentation of the minority classes, a fine-tuned transformer, and confidence-thresholded "
         "abstention.\n\nSource: github.com/Obito116/issue-triage"
     )
+
+st.markdown(
+    '<div class="page-footer">TF-IDF + logistic regression · trained on 1.27M real GitHub issues · '
+    '<a href="https://github.com/Obito116/issue-triage">source</a></div>',
+    unsafe_allow_html=True,
+)
