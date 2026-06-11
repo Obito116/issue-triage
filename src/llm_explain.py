@@ -19,7 +19,7 @@ def explain(issue_text, label, confidence):
         # Gemini off mid-sentence. Keep the visible thinking effort low.
         r = client.chat.completions.create(
             model=MODEL,
-            max_tokens=1024,
+            max_tokens=10000,
             extra_body={"reasoning": {"effort": "low"}},
             messages=[
                 {
