@@ -1,0 +1,115 @@
+{
+  "selected_model": "baseline",
+  "train_size": 120000,
+  "test_size": 30000,
+  "labels": [
+    "bug",
+    "feature",
+    "question",
+    "documentation"
+  ],
+  "results": {
+    "baseline": {
+      "micro_f1": 0.8257,
+      "macro_f1": 0.6814,
+      "per_class_f1": {
+        "bug": 0.8782,
+        "feature": 0.8273,
+        "question": 0.4733,
+        "documentation": 0.5466
+      }
+    },
+    "class_weight": {
+      "micro_f1": 0.7488,
+      "macro_f1": 0.6188,
+      "per_class_f1": {
+        "bug": 0.8384,
+        "feature": 0.7637,
+        "question": 0.4155,
+        "documentation": 0.4576
+      }
+    },
+    "smote": {
+      "micro_f1": 0.8025,
+      "macro_f1": 0.657,
+      "per_class_f1": {
+        "bug": 0.868,
+        "feature": 0.8105,
+        "question": 0.4638,
+        "documentation": 0.4858
+      }
+    },
+    "linear_svm": {
+      "micro_f1": 0.8173,
+      "macro_f1": 0.6817,
+      "per_class_f1": {
+        "bug": 0.8765,
+        "feature": 0.8284,
+        "question": 0.482,
+        "documentation": 0.54
+      }
+    }
+  },
+  "published_baselines_micro_f1": {
+    "fastText": 0.851,
+    "RoBERTa": 0.891
+  },
+  "top_terms_per_class": {
+    "bug": [
+      "bug",
+      "reproduce",
+      "fix",
+      "broken",
+      "fails",
+      "not",
+      "what happened",
+      "wrong",
+      "crashes",
+      "expected",
+      "flaky",
+      "broke"
+    ],
+    "documentation": [
+      "docs",
+      "documentation",
+      "document",
+      "readme",
+      "doc",
+      "docstring",
+      "clarify",
+      "guide",
+      "documented",
+      "mention",
+      "readthedocs",
+      "add"
+    ],
+    "feature": [
+      "enhancement",
+      "feature",
+      "add",
+      "implement",
+      "allow",
+      "feat",
+      "this needed",
+      "improvement",
+      "support",
+      "kind feature",
+      "suggestion",
+      "feature description"
+    ],
+    "question": [
+      "question",
+      "your question",
+      "should we",
+      "is it",
+      "does",
+      "can",
+      "how",
+      "how should",
+      "ccxt",
+      "freqtrade",
+      "sharp",
+      "is there"
+    ]
+  }
+}

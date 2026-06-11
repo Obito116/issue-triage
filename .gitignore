@@ -1,0 +1,10 @@
+.env
+__pycache__/
+*.pyc
+data/raw/
+data/*.parquet
+data/*.npz
+models/tfidf.pkl
+models/_fitted.pkl
+models/_results.json
+.venv/
